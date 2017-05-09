@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:synchronize="http://www.mulesoft.org/schema/mule/synchronize" xmlns:mock="http://www.mulesoft.org/schema/mule/mock" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mock http://www.mulesoft.org/schema/mule/mock/current/mule-mock.xsd
+http://www.mulesoft.org/schema/mule/synchronize http://www.mulesoft.org/schema/mule/synchronize/current/mule-synchronize.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <munit:config name="munit" doc:name="MUnit configuration" mock-inbounds="false"/>
+    <spring:beans>
+        <spring:import resource="classpath:mule-batch-example.xml"/>
+    </spring:beans>
+    <global-property name="poll-start-delay-in-milliseconds" value="10000" doc:name="Global Property"/>
+    <munit:test name="Give-A-List-of-Valid-Message-When-They-are-processed-by-The-Batch-Then-All-meessage-were-perocessed-successfully" description="Give A List of Valid Message When They are processed by The Batch Then All meessage were perocessed successfully!!!">
+        <dw:transform-message doc:name="List of Valid Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+[
+	{message:"hola mundo 1"},
+	{message:"hola mundo 2"}
+]]]></dw:set-payload>
+        </dw:transform-message>
+        <synchronize:run-and-wait runAsync="true" doc:name="Synchronize">
+            <batch:execute name="mule-batch-exampleBatch" doc:name="mule-batch-exampleBatch"/>
+        </synchronize:run-and-wait>
+
+        <munit:assert-not-null doc:name="Assert Not Null Payload(Batch Report was generated)"/>
+        <munit:assert-on-equals message="All records should succeed!" expectedValue="#[payload.getRecordCount()]" actualValue="#[payload.getResult().getTotalRecords()]" doc:name="All records should succeed!"/>
+        <munit:assert-false message="Failed On Complete Phase" condition="#[payload.getResult().isFailedOnCompletePhase()]" doc:name="Assert False for Failed On Complete Phase"/>
+        <munit:assert-false message="Failed OnInput Phase" condition="#[payload.getResult().isFailedOnInputPhase()]" doc:name="Assert False for Failed OnInput Phase"/>
+        <munit:assert-false message="Failed On Loading Phase" condition="#[payload.getResult().isFailedOnLoadingPhase()]" doc:name="Assert False for Failed On Loading Phase"/>
+
+    </munit:test>
+    <munit:test name="2Give-A-List-of-Valid-Message-When-They-are-processed-by-The-Batch-Then-All-meessage-were-perocessed-successfully" description="2Give A List of Valid Message When They are processed by The Batch Then All meessage were perocessed successfully!!!">
+        <dw:transform-message doc:name="List of Valid Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+[
+	{message:"hola mundo 1"},
+	{message:"hola mundo 2"}
+]]]></dw:set-payload>
+        </dw:transform-message>
+        <synchronize:run-and-wait runAsync="true" doc:name="Synchronize">
+            <batch:execute name="mule-batch-exampleBatch" doc:name="mule-batch-exampleBatch"/>
+        </synchronize:run-and-wait>
+        <munit:assert-not-null doc:name="Assert Not Null Payload(Batch Report was generated)"/>
+        <mock:verify-call messageProcessor="mule:sub-flow" atLeast="1" doc:name="Verify Call to First Batch Step Business Logic">
+            <mock:with-attributes>
+                <mock:with-attribute name="name" whereValue="#[matchContains('firstBatchStepBusinessLogic')]"/>
+            </mock:with-attributes>
+        </mock:verify-call>
+
+    </munit:test>
+    <munit:test name="Give-A-List-of-Message-with-One-Invalid-Message-When-They-are-processed-by-The-Batch-Then-All-meessage-were-perocessed-in-error" description="Give A List of Message with One Invalid Message When They are processed by The Batch Then All meessage were perocessed in error!!!">
+        <mock:throw-an exception-ref="#[new java.lang.IllegalArgumentException(&quot;Illegal Args&quot;)]" whenCalling="mule:sub-flow" doc:name="Throw an Exception">
+            <mock:with-attributes>
+                <mock:with-attribute name="name" whereValue="#[matchContains('firstBatchStepBusinessLogic')]"/>
+            </mock:with-attributes>
+        </mock:throw-an>
+        <dw:transform-message doc:name="List of Valid Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+[
+	{message:"hola mundo 1"}
+]]]></dw:set-payload>
+        </dw:transform-message>
+        <synchronize:run-and-wait runAsync="true" doc:name="Synchronize">
+            <batch:execute name="mule-batch-exampleBatch" doc:name="mule-batch-exampleBatch"/>
+        </synchronize:run-and-wait>
+
+        <munit:assert-not-null doc:name="Assert Not Null Payload(Batch Report was generated)"/>
+        <mock:verify-call messageProcessor="mule:sub-flow" atLeast="1" doc:name="Verify Call to Second Batch Step Business Error Logic">
+            <mock:with-attributes>
+                <mock:with-attribute name="name" whereValue="#[matchContains('secondBatchStepBusinessErrorLogic')]"/>
+            </mock:with-attributes>
+
+        </mock:verify-call>
+
+
+    </munit:test>
+</mule>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <sub-flow name="secondBatchStepBusinessErrorLogic">
+        <logger message="Hay errores" level="INFO" doc:name="Logger_Error"/>
+    </sub-flow>
+    <sub-flow name="firstBatchStepBusinessLogic">
+        <logger message="First Step #[payload]" level="INFO" doc:name="Logger payload"/>
+        <logger message="Message: #[payload.message]" level="INFO" doc:name="Logger"/>
+    </sub-flow>
+    <sub-flow name="Read_Message_From_SAP">
+        <set-payload value="#[[{&quot;message&quot;:&quot;hola mundo 1&quot;},{&quot;message&quot;:&quot;hola mundo 2&quot;}]]" mimeType="application/json" doc:name="Set Payload"/>
+    </sub-flow>
+    <batch:job name="mule-batch-exampleBatch" max-failed-records="2">
+        <batch:input>
+            <poll doc:name="Poll in 60000 milliseconds">
+                <fixed-frequency-scheduler frequency="60000" startDelay="${poll-start-delay-in-milliseconds}"/>
+                <flow-ref name="Read_Message_From_SAP" doc:name="Read_Message_From_SAP"/>
+            </poll>
+        </batch:input>
+        <batch:process-records>
+            <batch:step name="First_Batch_Step">
+                <flow-ref name="firstBatchStepBusinessLogic" doc:name="firstBatchStepBusinessLogic"/>
+            </batch:step>
+            <batch:step name="Second_Batch_Step" accept-policy="ONLY_FAILURES">
+                <flow-ref name="secondBatchStepBusinessErrorLogic" doc:name="secondBatchStepBusinessErrorLogic"/>
+            </batch:step>
+        </batch:process-records>
+        <batch:on-complete>
+            <logger message="Number of failed Records: #[payload.failedRecords]" level="INFO" doc:name="Logger failedRecords"/>
+            <logger message="Number of sucessfull Records: #[payload.successfulRecords]" level="INFO" doc:name="Logger successfulRecords"/>
+            <logger level="INFO" doc:name="Logger"/>
+        </batch:on-complete>
+    </batch:job>
+</mule>
